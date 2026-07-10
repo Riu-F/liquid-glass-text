@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NWC · Liquid Glass Text</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#040406;color:#f4f4f6;font-family:'Inter',system-ui,sans-serif;overflow:hidden}
+  #gl{position:fixed;inset:0;display:block;width:100%;height:100%;cursor:crosshair}
+
+  /* top-center mode switch */
+  .modebar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:40;display:flex;gap:4px;
+    background:rgba(14,14,22,.72);border:1px solid #22222e;border-radius:999px;padding:4px;backdrop-filter:blur(10px)}
+  .modebar button{font:inherit;font-size:12.5px;letter-spacing:.02em;color:#a2a2b0;background:transparent;
+    border:0;padding:8px 16px;border-radius:999px;cursor:pointer;transition:.15s;white-space:nowrap}
+  .modebar button:hover{color:#fff}
+  .modebar button.active{background:#7b3cff;color:#fff}
+
+  .overlay{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:28px 34px;pointer-events:none;
+    background:linear-gradient(0deg,rgba(4,4,6,.8),rgba(4,4,6,0))}
+  .overlay .kicker{font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:#8a8a98}
+  .overlay h1{font-size:24px;font-weight:600;letter-spacing:-.02em;margin:8px 0 6px}
+  .overlay p{color:#a2a2b0;max-width:560px;font-size:13.5px;line-height:1.5}
+
+  .panel{position:fixed;top:16px;right:16px;z-index:30;background:rgba(14,14,22,.72);
+    border:1px solid #22222e;border-radius:14px;padding:16px 18px;width:236px;backdrop-filter:blur(10px);
+    max-height:calc(100vh - 32px);overflow-y:auto}
+  .panel.hidden{display:none}
+  .panel h2{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#8a8a98;margin-bottom:12px}
+  .panel label{display:flex;justify-content:space-between;font-size:12px;color:#a2a2b0;margin-bottom:5px}
+  .panel label span{color:#fff;font-variant-numeric:tabular-nums}
+  .panel input[type=range]{width:100%;margin-bottom:13px;accent-color:#7b3cff}
+  .panel.withdesc input[type=range]{margin-bottom:3px}
+  .panel input[type=text]{width:100%;font:inherit;font-size:13px;color:#fff;background:#16161f;
+    border:1px solid #22222e;padding:8px 10px;border-radius:9px;margin:0 0 14px;letter-spacing:.04em}
+  .panel input[type=text]:focus{outline:none;border-color:#7b3cff}
+  /* rainbow track for the hue sliders so you can see the colour you're picking */
+  .panel input[type=range].hue{-webkit-appearance:none;appearance:none;height:12px;border-radius:999px;padding:0;
+    background:linear-gradient(90deg,#ff0000,#ffcc00,#33ff00,#00ffcc,#0033ff,#cc00ff,#ff0000)}
+  .panel input[type=range].hue::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #16161f;box-shadow:0 0 0 1px rgba(0,0,0,.5);cursor:pointer}
+  .panel input[type=range].hue::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #16161f;cursor:pointer}
+  .panel input[type=range].hue::-moz-range-track{height:12px;border-radius:999px;background:transparent}
+  .panel .desc{font-size:10px;color:#6f6f80;line-height:1.35;margin:0 0 12px}
+  .panel button{width:100%;font:inherit;font-size:12px;color:#a2a2b0;background:#16161f;
+    border:1px solid #22222e;padding:9px;border-radius:9px;cursor:pointer}
+  .panel button:hover{color:#fff;border-color:#7b3cff}
+  .panel .tip{font-size:11.5px;color:#6f6f80;line-height:1.45;margin-top:12px}
+  .hint{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:25;
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#6f6f80;transition:opacity .6s}
+  .err{position:fixed;inset:0;display:none;place-items:center;text-align:center;z-index:70;
+    background:#040406;color:#b9b9c6;font-size:14px;padding:40px;line-height:1.6}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div class="modebar">
+  <button data-mode="liquid" class="active">Liquid over text</button>
+  <button data-mode="refraction">Refraction letters</button>
+</div>
+
+<div class="hint" id="hint">move your cursor across the words</div>
+<div class="err" id="err"></div>
+
+<!-- ============ Refraction letters panel ============ -->
+<div class="panel hidden" id="panelR">
+  <h2>Refraction letters</h2>
+  <label>Text</label>
+  <input type="text" id="r_text" value="TEXT" maxlength="24" spellcheck="false" autocomplete="off">
+  <label>Liquid width <span id="r_vw">0.0020</span></label>
+  <input type="range" id="r_width" min="0.00008" max="0.002" step="0.00002" value="0.002">
+  <label>Flow force <span id="r_vf">3.52</span></label>
+  <input type="range" id="r_force" min="0.4" max="4" step="0.01" value="3.52">
+  <label>Swirl <span id="r_vsw">4.0</span></label>
+  <input type="range" id="r_swirl" min="0" max="4" step="0.5" value="4">
+  <label>Colour fade <span id="r_vfd">2.20</span></label>
+  <input type="range" id="r_fade" min="1" max="5" step="0.05" value="2.2">
+  <label>Calm (viscosity) <span id="r_vca">0.55</span></label>
+  <input type="range" id="r_calm" min="0.2" max="3" step="0.05" value="0.55">
+  <label>Refraction (inward) <span id="r_vr">0.170</span></label>
+  <input type="range" id="r_refr" min="0" max="0.18" step="0.002" value="0.17">
+  <label>Seam (split look) <span id="r_vse">0.48</span></label>
+  <input type="range" id="r_seam" min="0" max="1" step="0.02" value="0.48">
+  <label>Chromatic <span id="r_vch">0.030</span></label>
+  <input type="range" id="r_chroma" min="0" max="0.06" step="0.002" value="0.03">
+  <label>Fill spread <span id="r_vgl">0.032</span></label>
+  <input type="range" id="r_glow" min="0.005" max="0.06" step="0.001" value="0.032">
+  <label>Rim / outline <span id="r_vrm">0.00</span></label>
+  <input type="range" id="r_rim" min="0" max="2" step="0.05" value="0">
+  <label>Letter grey <span id="r_vgr">0.01</span></label>
+  <input type="range" id="r_grey" min="0" max="0.4" step="0.01" value="0.01">
+  <label>Colour hue <span id="r_vhu">0.67</span></label>
+  <input type="range" id="r_hue" class="hue" min="0" max="1" step="0.01" value="0.67">
+  <label>Rainbow spread <span id="r_vsp">0.00</span></label>
+  <input type="range" id="r_spread" min="0" max="1" step="0.02" value="0">
+  <label>Bloom <span id="r_vbl">0.18</span></label>
+  <input type="range" id="r_bloom" min="0" max="1.5" step="0.02" value="0.18">
+  <label>Fluid behind <span id="r_vb">0.16</span></label>
+  <input type="range" id="r_bg" min="0" max="0.5" step="0.01" value="0.16">
+  <label>Mask (hide outside) <span id="r_vmk">0.00</span></label>
+  <input type="range" id="r_mask" min="0" max="1" step="0.02" value="0">
+  <button id="r_clear">Clear</button>
+  <p class="tip">The letters are the glass here: the fluid colours them and refracts their edges. Use the center/edge button for a fill vs border look.</p>
+</div>
+
+<!-- ============ Liquid over text panel ============ -->
+<div class="panel withdesc" id="panelL">
+  <h2>Liquid over text</h2>
+
+  <label>Text</label>
+  <input type="text" id="l_text" value="TEXT" maxlength="24" spellcheck="false" autocomplete="off">
+
+  <label>Liquid width <span id="l_vw">0.0006</span></label>
+  <input type="range" id="l_width" min="0.00008" max="0.002" step="0.00002" value="0.0006">
+  <div class="desc">Thickness of the liquid ribbon. Higher = wider, chunkier swirls.</div>
+
+  <label>Flow force <span id="l_vf">3.00</span></label>
+  <input type="range" id="l_force" min="0.4" max="4" step="0.01" value="3">
+  <div class="desc">How hard the cursor pushes the fluid. Higher = faster, more energetic.</div>
+
+  <label>Swirl <span id="l_vsw">2.5</span></label>
+  <input type="range" id="l_swirl" min="0" max="4" step="0.5" value="2.5">
+  <div class="desc">Turbulence / curl. Higher = more eddies; lower = smoother ribbons.</div>
+
+  <label>Colour fade <span id="l_vfd">3.00</span></label>
+  <input type="range" id="l_fade" min="1" max="5" step="0.05" value="3">
+  <div class="desc">How fast the liquid disappears after you stop. Higher = shorter trails.</div>
+
+  <label>Calm (viscosity) <span id="l_vca">0.45</span></label>
+  <input type="range" id="l_calm" min="0.2" max="3" step="0.05" value="0.45">
+  <div class="desc">How quickly motion settles. Higher = calmer, less "windy".</div>
+
+  <label>Mask (hide outside) <span id="l_vmk">1.00</span></label>
+  <input type="range" id="l_mask" min="0" max="1" step="0.02" value="1">
+  <div class="desc">High = liquid only inside the letters. Low = liquid bleeds outside them.</div>
+
+  <label>Refraction (bend) <span id="l_vr">0.090</span></label>
+  <input type="range" id="l_refr" min="0" max="0.18" step="0.002" value="0.09">
+  <div class="desc">How much the liquid warps the letter edges as it flows over them.</div>
+
+  <label>Refraction reach <span id="l_vre">0.130</span></label>
+  <input type="range" id="l_reach" min="0.005" max="0.15" step="0.005" value="0.13">
+  <div class="desc">Hard limit on how far from a letter refraction can appear. Low = tight to the letters.</div>
+
+  <label>Chromatic <span id="l_vch">0.0040</span></label>
+  <input type="range" id="l_chroma" min="0" max="0.02" step="0.0005" value="0.004">
+  <div class="desc">Prismatic "chrome" fringing on the edges. Independent of colour.</div>
+
+  <label>Fluid colour <span id="l_vtn">2.00</span></label>
+  <input type="range" id="l_tint" min="0" max="3" step="0.05" value="2">
+  <div class="desc">Amount of a single tint colour. 0 = pure chrome, no colour.</div>
+
+  <label>Colour hue <span id="l_vhu">0.64</span></label>
+  <input type="range" id="l_hue" class="hue" min="0" max="1" step="0.01" value="0.64">
+  <div class="desc">Picks the tint colour across the full spectrum — drag along the rainbow to the colour you want.</div>
+
+  <label>Rainbow spread <span id="l_vsp">0.00</span></label>
+  <input type="range" id="l_spread" min="0" max="1" step="0.02" value="0">
+  <div class="desc">0 = one solid colour. Higher cycles the hue over time as you paint, so the flowing liquid streaks through a rainbow (like the WebGL fluid demo).</div>
+
+  <label>Rim glow <span id="l_vrm">1.30</span></label>
+  <input type="range" id="l_rim" min="0" max="2" step="0.05" value="1.3">
+  <div class="desc">Brightness of the glassy highlight along the liquid's edge.</div>
+
+  <label>Letter visibility <span id="l_vb">0.04</span></label>
+  <input type="range" id="l_bg" min="0" max="0.5" step="0.01" value="0.04">
+  <div class="desc">How visible the letters are when no liquid is on them.</div>
+
+  <label>Bloom <span id="l_vbl">0.14</span></label>
+  <input type="range" id="l_bloom" min="0" max="1.5" step="0.02" value="0.14">
+  <div class="desc">Soft glow on the brightest parts. Keep low for a crisp look.</div>
+
+  <button id="l_clear">Clear</button>
+  <p class="tip">Chromatic gives the chrome edge; Fluid colour + Hue add one tasteful colour without going rainbow.</p>
+</div>
+
+<div class="overlay">
+  <div class="kicker" id="ovKicker">Liquid over text</div>
+  <h1 id="ovH1">The liquid is the glass</h1>
+  <p id="ovP">A free-flowing fluid, revealed only inside the letters like a mask. Wave your cursor across the words.</p>
+</div>
+
+<script>
+/* =============================================================================
+   Liquid Glass Text — a cursor-driven fluid rendered as glass over a wordmark.
+   Single self-contained WebGL2 file, no dependencies, no build step.
+
+   Pipeline, drawn every frame (search these tags to jump around):
+     [fluid programs]  GPU Navier-Stokes: splat -> curl/vorticity -> divergence
+                       -> Jacobi pressure solve -> gradient subtract -> advection
+     [text mask]       wordmark rasterised to a crisp mask + a blurred "field"
+                       (approx SDF) that gives smooth letter-edge normals
+     [display]         one shader, two looks selected by uMode:
+                         0 = refraction letters (the letters are the glass)
+                         1 = liquid over text  (the liquid is the glass)
+                       colour hue is carried inside the dye (g,b channels) so it
+                       flows, mixes and can cycle over time for the rainbow
+     [bloom + tonemap] threshold -> blur -> add back -> ACES -> gamma
+
+   Fluid solver based on Pavel Dobryakov's WebGL-Fluid-Simulation (MIT).
+   The glass / refraction / colour / bloom layers are original. See README.md.
+   ============================================================================= */
+let WORDS=['TEXT'];   // <-- default wordmark; editable live via the Text field
+
+const canvas=document.getElementById('gl');
+const gl=canvas.getContext('webgl2',{antialias:false,alpha:false,preserveDrawingBuffer:true});
+const errEl=document.getElementById('err');
+function fail(m){ errEl.style.display='grid'; errEl.textContent=m; }
+if(!gl){ fail('This prototype needs WebGL2 (recent Chrome/Edge/Firefox/Safari).'); }
+else {
+  const cbf=gl.getExtension('EXT_color_buffer_float');
+  const lin=gl.getExtension('OES_texture_float_linear');
+  if(!cbf){ fail('This browser cannot render to float textures (EXT_color_buffer_float).'); }
+  else run(lin);
+}
+
+function run(hasLinear){
+  const FILTER=hasLinear?gl.LINEAR:gl.NEAREST;
+  const DPR=Math.min(window.devicePixelRatio||1,2);
+
+  const vao=gl.createVertexArray(); gl.bindVertexArray(vao);
+  const b=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,b);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+
+  const VERT=`#version 300 es
+  layout(location=0) in vec2 aPosition; out vec2 vUv;
+  void main(){ vUv=aPosition*0.5+0.5; gl_Position=vec4(aPosition,0.0,1.0); }`;
+  function sh(t,s){ const o=gl.createShader(t); gl.shaderSource(o,s); gl.compileShader(o);
+    if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)) console.error('shader',gl.getShaderInfoLog(o),s); return o; }
+  function prog(f){ const p=gl.createProgram();
+    gl.attachShader(p,sh(gl.VERTEX_SHADER,VERT));
+    gl.attachShader(p,sh(gl.FRAGMENT_SHADER,'#version 300 es\nprecision highp float;\n'+f));
+    gl.linkProgram(p); if(!gl.getProgramParameter(p,gl.LINK_STATUS)) console.error('link',gl.getProgramInfoLog(p));
+    const u={},n=gl.getProgramParameter(p,gl.ACTIVE_UNIFORMS);
+    for(let i=0;i<n;i++){const q=gl.getActiveUniform(p,i); u[q.name]=gl.getUniformLocation(p,q.name);} return {p,u}; }
+
+  // ---- fluid programs ----
+  const splatP=prog(`in vec2 vUv; uniform sampler2D uTarget; uniform float aspect; uniform vec3 color;
+    uniform vec2 point; uniform float radius; out vec4 o;
+    void main(){ vec2 p=vUv-point; p.x*=aspect; o=vec4(texture(uTarget,vUv).xyz+exp(-dot(p,p)/radius)*color,1.0); }`);
+  const advP=prog(`in vec2 vUv; uniform sampler2D uVelocity; uniform sampler2D uSource;
+    uniform vec2 uTexel; uniform float dt; uniform float diss; out vec4 o;
+    void main(){ vec2 c=vUv-dt*texture(uVelocity,vUv).xy*uTexel; o=texture(uSource,c)/(1.0+diss*dt); o.a=1.0; }`);
+  const divP=prog(`in vec2 vUv; uniform sampler2D uV; uniform vec2 uTexel; out vec4 o;
+    void main(){ float L=texture(uV,vUv-vec2(uTexel.x,0)).x,R=texture(uV,vUv+vec2(uTexel.x,0)).x,
+      T=texture(uV,vUv+vec2(0,uTexel.y)).y,B=texture(uV,vUv-vec2(0,uTexel.y)).y; o=vec4(0.5*(R-L+T-B),0,0,1);}`);
+  const curlP=prog(`in vec2 vUv; uniform sampler2D uV; uniform vec2 uTexel; out vec4 o;
+    void main(){ float L=texture(uV,vUv-vec2(uTexel.x,0)).y,R=texture(uV,vUv+vec2(uTexel.x,0)).y,
+      T=texture(uV,vUv+vec2(0,uTexel.y)).x,B=texture(uV,vUv-vec2(0,uTexel.y)).x; o=vec4(R-L-(T-B),0,0,1);}`);
+  const vortP=prog(`in vec2 vUv; uniform sampler2D uV; uniform sampler2D uC; uniform vec2 uTexel;
+    uniform float curlAmt; uniform float dt; out vec4 o;
+    void main(){ float L=texture(uC,vUv-vec2(uTexel.x,0)).x,R=texture(uC,vUv+vec2(uTexel.x,0)).x,
+      T=texture(uC,vUv+vec2(0,uTexel.y)).x,B=texture(uC,vUv-vec2(0,uTexel.y)).x,C=texture(uC,vUv).x;
+      vec2 f=0.5*vec2(abs(T)-abs(B),abs(R)-abs(L)); f/=length(f)+0.0001; f*=curlAmt*C; f.y*=-1.0;
+      vec2 v=texture(uV,vUv).xy; o=vec4(clamp(v+f*dt,-1000.0,1000.0),0,1);}`);
+  const pressP=prog(`in vec2 vUv; uniform sampler2D uP; uniform sampler2D uDiv; uniform vec2 uTexel; out vec4 o;
+    void main(){ float L=texture(uP,vUv-vec2(uTexel.x,0)).x,R=texture(uP,vUv+vec2(uTexel.x,0)).x,
+      T=texture(uP,vUv+vec2(0,uTexel.y)).x,B=texture(uP,vUv-vec2(0,uTexel.y)).x,d=texture(uDiv,vUv).x;
+      o=vec4((L+R+B+T-d)*0.25,0,0,1);}`);
+  const gradSP=prog(`in vec2 vUv; uniform sampler2D uP; uniform sampler2D uV; uniform vec2 uTexel; out vec4 o;
+    void main(){ float L=texture(uP,vUv-vec2(uTexel.x,0)).x,R=texture(uP,vUv+vec2(uTexel.x,0)).x,
+      T=texture(uP,vUv+vec2(0,uTexel.y)).x,B=texture(uP,vUv-vec2(0,uTexel.y)).x;
+      vec2 v=texture(uV,vUv).xy; o=vec4(clamp(v-vec2(R-L,T-B),-45.0,45.0),0.0,1.0);}`);
+  const clearP=prog(`in vec2 vUv; uniform sampler2D uT; uniform float value; out vec4 o;
+    void main(){ o=value*texture(uT,vUv);}`);
+
+  // ---- display: both looks in one shader, selected by uMode (0 = refraction letters, 1 = liquid over text) ----
+  const dispP=prog(`in vec2 vUv; uniform sampler2D uDye; uniform sampler2D uMask; uniform sampler2D uField;
+    uniform sampler2D uGrad; uniform vec2 uMaskTexel; uniform vec2 uDyeTexel;
+    uniform float uRefr; uniform float uCA; uniform float uBg; uniform float uEdge; uniform float uMode;
+    uniform float uRim; uniform float uGrey; uniform float uTint; uniform float uGlowR; uniform float uMaskAmt; uniform float uSeam;
+    uniform float uHue; uniform float uSpread; uniform float uReach;
+    out vec4 o;
+    vec3 rgb2hsv(vec3 c){ vec4 K=vec4(0.0,-0.3333333,0.6666667,-1.0);
+      vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));
+      vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));
+      float d=q.x-min(q.w,q.y); float e=1.0e-10;
+      return vec3(abs(q.z+(q.w-q.y)/(6.0*d+e)),d/(q.x+e),q.x); }
+    vec3 hsv2rgb(vec3 c){ vec4 K=vec4(1.0,0.6666667,0.3333333,3.0);
+      vec3 p=abs(fract(c.xxx+K.xyz)*6.0-K.www); return c.z*mix(K.xxx,clamp(p-K.xxx,0.0,1.0),c.y); }
+    void main(){
+      float c=texture(uMask,vUv).r;
+      float fill=smoothstep(0.45,0.55,c);
+      // letter-shape normals from the blurred field
+      vec2 st=uMaskTexel*3.0;
+      float fL=texture(uField,vUv-vec2(st.x,0.0)).r, fR=texture(uField,vUv+vec2(st.x,0.0)).r;
+      float fT=texture(uField,vUv+vec2(0.0,st.y)).r, fB=texture(uField,vUv-vec2(0.0,st.y)).r;
+      vec2 grd=vec2(fR-fL,fT-fB); float gm=length(grd);
+      vec2 n = gm>0.0002 ? grd/gm : vec2(0.0);
+      float edge=clamp(gm*4.0,0.0,1.0);
+      // fluid value + fluid-shape gradient
+      float d=texture(uDye,vUv).r;
+      vec2 dst=uDyeTexel*2.0;
+      float dL=texture(uDye,vUv-vec2(dst.x,0.0)).r, dR=texture(uDye,vUv+vec2(dst.x,0.0)).r;
+      float dT=texture(uDye,vUv+vec2(0.0,dst.y)).r, dB=texture(uDye,vUv-vec2(0.0,dst.y)).r;
+      vec2 gD=vec2(dR-dL,dT-dB); float gmD=length(gD);
+      vec2 nD = gmD>0.00001 ? gD/gmD : vec2(0.0);
+      // hue carried by the fluid: the (g,b) channels store a unit vector whose angle is the
+      // hue painted at that spot; it flows and mixes with the dye. spreadOn = rainbow active.
+      vec2 hueVec=texture(uDye,vUv).gb; float dyeHue=fract(atan(hueVec.y,hueVec.x)/6.28318);
+      float spreadOn=step(0.001,uSpread);
+
+      vec3 col;
+      if(uMode<0.5){
+        // ===== Refraction letters: the LETTERS are the glass =====
+        // spread the fluid into a soft glow so a WHOLE letter lights as one entity (no split halves)
+        float glow=texture(uDye,vUv).r*4.0; float wsum=4.0;
+        for(int k=0;k<2;k++){ float r=uGlowR*(float(k)+1.0);
+          for(int j=0;j<8;j++){ float a=float(j)*0.7853982;
+            glow+=texture(uDye,vUv+vec2(cos(a),sin(a))*r).r; wsum+=1.0; } }
+        glow/=wsum;
+        float ca=uCA*(0.6+edge*1.8);
+        // uSeam blends the refraction direction: 0 = driven by the FLUID (coherent, no seam),
+        // 1 = driven by the LETTER shape (the inner/outer split).
+        vec2 dispF=gD*(uRefr*4.0);
+        float depth=texture(uField,vUv).r;
+        vec2 dispL=n*uRefr*(0.35+depth);
+        vec2 disp=mix(dispF,dispL,uSeam);
+        float dl=length(disp); if(dl>0.07) disp*=0.07/dl;   // cap how far it reaches
+        vec2 ruv=vUv+disp;
+        vec2 caDir=normalize(mix(nD,n,uSeam)+vec2(1e-4,0.0));
+        float ri=texture(uDye,ruv).r;
+        float i=max(glow, ri);                          // glow lights the WHOLE letter; refraction adds the sheen
+        float t=clamp(pow(i,0.8),0.0,1.0);
+        vec3 liquid=texture(uGrad,vec2(t,0.5)).rgb;
+        float cr=texture(uDye,ruv + caDir*ca).r, cb=texture(uDye,ruv - caDir*ca).r;
+        liquid.r*=0.7+0.6*clamp(cr/max(i,0.001),0.0,1.5);
+        liquid.b*=0.7+0.6*clamp(cb/max(i,0.001),0.0,1.5);
+        // absolute hue picker: the raw purple's measured dominant hue is 0.67, so subtracting it
+        // makes the colour you drag to on the slider the colour that actually appears (pick blue ->
+        // blue). default uHue 0.67 -> zero shift -> the original purple. rainbow uses absolute dyeHue.
+        {
+          vec3 hs=rgb2hsv(liquid);
+          hs.x=mix(fract(hs.x + uHue - 0.67), dyeHue, spreadOn);
+          liquid=hsv2rgb(hs);
+        }
+        float present=smoothstep(0.01,0.3,i);
+        float border=clamp(edge*1.5,0.0,1.0); float cmask=mix(1.0,border,uEdge);
+        vec3 letterCol=vec3(uGrey);
+        letterCol+=liquid*(0.7+2.0*i)*present*cmask;
+        letterCol+=vec3(1.0)*edge*mix(0.16,0.42,uEdge)*uRim;
+        float spec=pow(max(dot(n,normalize(vec2(-0.5,0.65))),0.0),6.0)*edge;
+        letterCol+=vec3(1.0)*spec*0.4;
+        vec3 behind=texture(uGrad,vec2(clamp(pow(d,0.8),0.0,1.0),0.5)).rgb*smoothstep(0.02,0.4,d)*d*uBg*3.0;
+        col=behind*(1.0-fill)*(1.0-uMaskAmt)+letterCol*fill;   // uMaskAmt hides the fluid outside the letters
+      } else {
+        // ===== Liquid over text: the LIQUID is the glass, revealed inside the letters (Lusion) =====
+        float amp=uRefr*3.0; vec2 disp=gD*amp;
+        float dl=length(disp); if(dl>uReach) disp*=uReach/dl;   // hard cap: fluid can't reach far from letters
+        float ca=(uCA*1.6)*clamp(gmD*25.0,0.0,1.0);
+        // per-channel refracted letter coverage -> CHROMATIC "chrome" edges (independent of colour)
+        float mR=smoothstep(0.45,0.55,texture(uMask,vUv+disp+nD*ca).r);
+        float mG=smoothstep(0.45,0.55,texture(uMask,vUv+disp).r);
+        float mB=smoothstep(0.45,0.55,texture(uMask,vUv+disp-nD*ca).r);
+        float lettersCrisp=smoothstep(0.45,0.55,c);
+        // greyscale liquid brightness (this is the "chrome" look)
+        float rim=clamp(gmD*22.0,0.0,1.0);
+        float glint=pow(max(dot(nD,normalize(vec2(-0.5,0.65))),0.0),2.0)*rim;
+        float lum = rim*uRim + glint*0.5 + d*0.8;
+        // solid colour = uHue; with the rainbow on, the hue is the fluid's time-cycled dyeHue,
+        // so the flowing liquid streaks through the spectrum over time (WebGL-fluid style)
+        float hueUsed=mix(uHue,dyeHue,spreadOn);
+        vec3 tint=hsv2rgb(vec3(hueUsed,0.85,1.0));
+        vec3 fluidCol = vec3(lum) + tint*lum*uTint;
+        // uMaskAmt: 1 = liquid only inside letters, 0 = liquid also bleeds outside
+        vec3 maskVec = mix(vec3(1.0), vec3(mR,mG,mB), uMaskAmt);
+        col = vec3(uBg)*lettersCrisp + fluidCol*maskVec;       // faint always-on letters + masked liquid
+      }
+      o=vec4(col,1.0);
+    }`);
+
+  // ---- bloom + tonemap ----
+  const preP=prog(`in vec2 vUv; uniform sampler2D uTex; uniform float uThresh; uniform float uKnee; out vec4 o;
+    void main(){ vec3 c=texture(uTex,vUv).rgb; float br=max(c.r,max(c.g,c.b));
+      float s=clamp(br-uThresh+uKnee,0.0,2.0*uKnee); s=s*s/(4.0*uKnee+0.0001);
+      float k=max(s,br-uThresh)/max(br,0.0001); o=vec4(c*k,1.0);}`);
+  const blurP=prog(`in vec2 vUv; uniform sampler2D uTex; uniform vec2 uTexel; uniform vec2 uDir; out vec4 o;
+    void main(){ vec2 d=uTexel*uDir; vec3 s=texture(uTex,vUv).rgb*0.227;
+      s+=texture(uTex,vUv+d*1.3846).rgb*0.316; s+=texture(uTex,vUv-d*1.3846).rgb*0.316;
+      s+=texture(uTex,vUv+d*3.2307).rgb*0.070; s+=texture(uTex,vUv-d*3.2307).rgb*0.070; o=vec4(s,1.0);}`);
+  const compP=prog(`in vec2 vUv; uniform sampler2D uScene; uniform sampler2D uBloom; uniform float uIntensity; out vec4 o;
+    vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0); }
+    void main(){ vec3 c=texture(uScene,vUv).rgb + texture(uBloom,vUv).rgb*uIntensity;
+      c=aces(c); c=pow(c,vec3(1.0/2.2)); o=vec4(c,1.0);}`);
+
+  // ---- FBOs ----
+  function fbo(w,h,filter){ const t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filter); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,filter);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,w,h,0,gl.RGBA,gl.HALF_FLOAT,null);
+    const f=gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER,f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);
+    gl.viewport(0,0,w,h); gl.clear(gl.COLOR_BUFFER_BIT); return {t,f,w,h,texel:[1/w,1/h]}; }
+  function dbl(w,h,filter){ let a=fbo(w,h,filter),b2=fbo(w,h,filter);
+    return {w,h,texel:[1/w,1/h],get r(){return a;},get w2(){return b2;},swap(){const t=a;a=b2;b2=t;}}; }
+
+  let velocity,dye,divergence,curl,pressure,scene,bloomA,bloomB,SIM,DYE,BLOOM;
+  function resn(res){ let a=gl.drawingBufferWidth/gl.drawingBufferHeight; if(a<1)a=1/a;
+    const mn=Math.round(res),mx=Math.round(res*a);
+    return gl.drawingBufferWidth>gl.drawingBufferHeight?{w:mx,h:mn}:{w:mn,h:mx}; }
+  function initFBOs(){
+    SIM=resn(200); DYE=resn(1536);
+    const cw=gl.drawingBufferWidth, ch=gl.drawingBufferHeight; BLOOM={w:Math.max(2,cw>>1),h:Math.max(2,ch>>1)};
+    velocity=dbl(SIM.w,SIM.h,FILTER); dye=dbl(DYE.w,DYE.h,FILTER);
+    divergence=fbo(SIM.w,SIM.h,gl.NEAREST); curl=fbo(SIM.w,SIM.h,gl.NEAREST); pressure=dbl(SIM.w,SIM.h,gl.NEAREST);
+    scene=fbo(cw,ch,FILTER); bloomA=fbo(BLOOM.w,BLOOM.h,FILTER); bloomB=fbo(BLOOM.w,BLOOM.h,FILTER);
+  }
+
+  // ---- gradient palette texture ----
+  const gcv=document.createElement('canvas'); gcv.width=256; gcv.height=1;
+  const gx=gcv.getContext('2d'); const gr=gx.createLinearGradient(0,0,256,0);
+  gr.addColorStop(0.00,'#060814'); gr.addColorStop(0.15,'#10204f'); gr.addColorStop(0.35,'#3b3af0');
+  gr.addColorStop(0.55,'#7a2fe0'); gr.addColorStop(0.72,'#ff2f86'); gr.addColorStop(0.86,'#ff7a3c');
+  gr.addColorStop(1.00,'#ffe9c2'); gx.fillStyle=gr; gx.fillRect(0,0,256,1);
+  const gradTex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,gradTex);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,gcv);
+
+  // ---- text mask ----
+  const mcv=document.createElement('canvas'), mctx=mcv.getContext('2d'); const maskTex=gl.createTexture(); let maskTexel=[1,1];
+  const fcv=document.createElement('canvas'), fctx=fcv.getContext('2d'); const fieldTex=gl.createTexture();
+  function buildMask(){
+    const w=Math.floor(innerWidth*DPR),h=Math.floor(innerHeight*DPR); mcv.width=w; mcv.height=h;
+    mctx.fillStyle='#000'; mctx.fillRect(0,0,w,h); mctx.textAlign='center'; mctx.textBaseline='middle';
+    let fs=Math.min(w*0.5,h/(WORDS.length*1.15)); mctx.font=`800 ${fs}px Inter, sans-serif`;
+    const lng=Math.max(...WORDS.map(t=>mctx.measureText(t).width)); if(lng>w*0.5){ fs*=w*0.5/lng; mctx.font=`800 ${fs}px Inter, sans-serif`; }
+    const lh=fs*1.06,y0=h/2-lh*(WORDS.length-1)/2;
+    mctx.filter=`blur(${Math.max(0.6,fs*0.008)}px)`; mctx.fillStyle='#fff';   // tiny blur: crisp fill, smooth edge normals only
+    WORDS.forEach((t,i)=>mctx.fillText(t,w/2,y0+i*lh)); mctx.filter='none';
+    gl.bindTexture(gl.TEXTURE_2D,maskTex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,mcv); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false); maskTexel=[1/w,1/h];
+    // heavily-blurred "field" (approx SDF) used only for smooth, curved refraction normals
+    fcv.width=w; fcv.height=h; fctx.fillStyle='#000'; fctx.fillRect(0,0,w,h);
+    fctx.textAlign='center'; fctx.textBaseline='middle'; fctx.font=`800 ${fs}px Inter, sans-serif`;
+    fctx.filter=`blur(${Math.max(2,fs*0.045)}px)`; fctx.fillStyle='#fff';   // tighter field: each letter stays self-contained
+    WORDS.forEach((t,i)=>fctx.fillText(t,w/2,y0+i*lh)); fctx.filter='none';
+    gl.bindTexture(gl.TEXTURE_2D,fieldTex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,fcv); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+  }
+
+  function resize(){ canvas.width=Math.floor(innerWidth*DPR); canvas.height=Math.floor(innerHeight*DPR); initFBOs(); buildMask(); }
+
+  function bind(t,u){ gl.activeTexture(gl.TEXTURE0+u); gl.bindTexture(gl.TEXTURE_2D,t); return u; }
+  function blit(target){ if(target){ gl.bindFramebuffer(gl.FRAMEBUFFER,target.f); gl.viewport(0,0,target.w,target.h);}
+    else { gl.bindFramebuffer(gl.FRAMEBUFFER,null); gl.viewport(0,0,gl.drawingBufferWidth,gl.drawingBufferHeight);} gl.drawArrays(gl.TRIANGLE_STRIP,0,4); }
+
+  // ---- pointer ----
+  const P={x:0.5,y:0.6,dx:0,dy:0,moved:false}; let userMoved=false; const hintEl=document.getElementById('hint');
+  const CLAMP=0.005;   // cap how much velocity a single frame can inject (stops runaway "wind")
+  function setP(cx,cy){ const nx=cx/innerWidth, ny=1-cy/innerHeight;
+    P.dx=Math.max(-CLAMP,Math.min(CLAMP,nx-P.x)); P.dy=Math.max(-CLAMP,Math.min(CLAMP,ny-P.y)); P.x=nx; P.y=ny; P.moved=true; }
+  addEventListener('pointermove',e=>{ setP(e.clientX,e.clientY); userMoved=true; hintEl.style.opacity=0; });
+  addEventListener('pointerdown',e=>{ setP(e.clientX,e.clientY); userMoved=true; });
+
+  // ---- per-mode settings (each look keeps its own controls, defaults and tweaks) ----
+  const R={BLOOM:0.18,FORCE:3.52,REFR:0.17,BG:0.16,WIDTH:0.002,CHROMA:0.03,RIM:0.0,GREY:0.01,GLOW:0.032,
+           MASK:0.0,SEAM:0.48,HUE:0.67,SPREAD:0.0,TINT:0.0,REACH:0.05,CURL:4,CALM:0.55,FADE:2.2,EDGE:0};
+  const L={BLOOM:0.14,FORCE:3.0,REFR:0.09,BG:0.04,WIDTH:0.0006,CHROMA:0.004,RIM:1.3,GREY:0.12,GLOW:0.025,
+           MASK:1.0,SEAM:0.0,HUE:0.64,SPREAD:0.0,TINT:2.0,REACH:0.13,CURL:2.5,CALM:0.45,FADE:3.0,EDGE:0};
+  let MODE='liquid';
+  const cfg=()=>MODE==='refraction'?R:L;
+
+  // time-cycling hue for the rainbow (mirrors the WebGL fluid demo: the injected colour
+  // shifts over time, and the dye carries that hue as it flows). Encoded per-splat.
+  let huePhase=0; const HUE_SPEED=0.45;
+
+  function slider(id,valId,obj,key,fmt){ const el=document.getElementById(id); if(!el) return;
+    const v=document.getElementById(valId); el.oninput=e=>{ const x=+e.target.value; obj[key]=x; if(v) v.textContent=(fmt||(n=>n))(x); }; }
+  const f4=x=>x.toFixed(4), f3=x=>x.toFixed(3), f2=x=>x.toFixed(2), f1=x=>x.toFixed(1);
+
+  // refraction-letters panel
+  slider('r_width','r_vw',R,'WIDTH',f4);  slider('r_force','r_vf',R,'FORCE',f2);
+  slider('r_swirl','r_vsw',R,'CURL',f1);  slider('r_fade','r_vfd',R,'FADE',f2);
+  slider('r_calm','r_vca',R,'CALM',f2);   slider('r_refr','r_vr',R,'REFR',f3);
+  slider('r_seam','r_vse',R,'SEAM',f2);   slider('r_chroma','r_vch',R,'CHROMA',f3);
+  slider('r_glow','r_vgl',R,'GLOW',f3);   slider('r_rim','r_vrm',R,'RIM',f2);
+  slider('r_grey','r_vgr',R,'GREY',f2);   slider('r_hue','r_vhu',R,'HUE',f2);
+  slider('r_spread','r_vsp',R,'SPREAD',f2); slider('r_bloom','r_vbl',R,'BLOOM',f2);
+  slider('r_bg','r_vb',R,'BG',f2);        slider('r_mask','r_vmk',R,'MASK',f2);
+
+  // liquid-over-text panel
+  slider('l_width','l_vw',L,'WIDTH',f4);  slider('l_force','l_vf',L,'FORCE',f2);
+  slider('l_swirl','l_vsw',L,'CURL',f1);  slider('l_fade','l_vfd',L,'FADE',f2);
+  slider('l_calm','l_vca',L,'CALM',f2);   slider('l_mask','l_vmk',L,'MASK',f2);
+  slider('l_refr','l_vr',L,'REFR',f3);    slider('l_reach','l_vre',L,'REACH',f3);
+  slider('l_chroma','l_vch',L,'CHROMA',f4); slider('l_tint','l_vtn',L,'TINT',f2);
+  slider('l_hue','l_vhu',L,'HUE',f2);     slider('l_spread','l_vsp',L,'SPREAD',f2);
+  slider('l_rim','l_vrm',L,'RIM',f2);     slider('l_bg','l_vb',L,'BG',f2);
+  slider('l_bloom','l_vbl',L,'BLOOM',f2);
+
+  function clr(f){ gl.useProgram(clearP.p); gl.uniform1i(clearP.u.uT,bind(f.r.t,0)); gl.uniform1f(clearP.u.value,0); blit(f.w2); f.swap(); }
+  function clearFluid(){ clr(velocity); clr(dye); }
+  ['r_clear','l_clear'].forEach(id=>{ const el=document.getElementById(id); if(el) el.onclick=clearFluid; });
+
+  // ---- editable wordmark (shared by both looks; whitespace stacks words on separate lines) ----
+  function setText(str){ let ws=str.split(/\s+/).filter(Boolean); if(!ws.length) ws=[' ']; WORDS=ws; buildMask(); }
+  const textInputs=[document.getElementById('r_text'),document.getElementById('l_text')];
+  textInputs.forEach(inp=>{ if(!inp) return; inp.oninput=e=>{ const v=e.target.value;
+    textInputs.forEach(o=>{ if(o&&o!==e.target) o.value=v; }); setText(v); }; });
+
+  // ---- top-center mode switch ----
+  const OV={
+    refraction:{k:'Refraction letters',h:'The letters are the glass',
+      p:'The fluid colours and refracts the letterforms themselves. Wave your cursor across the words.',t:'NWC · Refraction Letters'},
+    liquid:{k:'Liquid over text',h:'The liquid is the glass',
+      p:'A free-flowing fluid, revealed only inside the letters like a mask. Wave your cursor across the words.',t:'NWC · Liquid Over Text'}
+  };
+  const ovK=document.getElementById('ovKicker'), ovH=document.getElementById('ovH1'), ovP=document.getElementById('ovP');
+  const panelR=document.getElementById('panelR'), panelL=document.getElementById('panelL');
+  function setMode(m){ MODE=m;
+    document.querySelectorAll('.modebar button').forEach(bb=>bb.classList.toggle('active',bb.dataset.mode===m));
+    panelR.classList.toggle('hidden',m!=='refraction'); panelL.classList.toggle('hidden',m!=='liquid');
+    const o=OV[m]; ovK.textContent=o.k; ovH.textContent=o.h; ovP.textContent=o.p; document.title=o.t;
+  }
+  document.querySelectorAll('.modebar button').forEach(bb=>bb.onclick=()=>setMode(bb.dataset.mode));
+
+  function splat(x,y,dx,dy){
+    const aspect=canvas.width/canvas.height;
+    gl.useProgram(splatP.p);
+    gl.uniform1i(splatP.u.uTarget,bind(velocity.r.t,0)); gl.uniform1f(splatP.u.aspect,aspect);
+    gl.uniform2f(splatP.u.point,x,y); gl.uniform1f(splatP.u.radius,cfg().WIDTH);
+    gl.uniform3f(splatP.u.color,dx,dy,0.0); blit(velocity.w2); velocity.swap();
+    // dye: .r = intensity (drives all shape/rim/refraction math); .g/.b = hue as a unit
+    // vector so uniform dissipation preserves the angle (atan2 is scale-invariant).
+    const th=6.2831853*(cfg().HUE+huePhase);
+    gl.uniform1i(splatP.u.uTarget,bind(dye.r.t,0)); gl.uniform3f(splatP.u.color,0.5,0.5*Math.cos(th),0.5*Math.sin(th)); blit(dye.w2); dye.swap();
+  }
+
+  resize(); addEventListener('resize',resize);
+  const ITER=24, PDECAY=0.8, SPLAT_FORCE=1800;
+  let last=performance.now(), startT=performance.now();
+
+  function step(dt){
+    const c=cfg();
+    gl.useProgram(curlP.p); gl.uniform1i(curlP.u.uV,bind(velocity.r.t,0)); gl.uniform2f(curlP.u.uTexel,velocity.texel[0],velocity.texel[1]); blit(curl);
+    gl.useProgram(vortP.p); gl.uniform1i(vortP.u.uV,bind(velocity.r.t,0)); gl.uniform1i(vortP.u.uC,bind(curl.t,1));
+      gl.uniform2f(vortP.u.uTexel,velocity.texel[0],velocity.texel[1]); gl.uniform1f(vortP.u.curlAmt,c.CURL); gl.uniform1f(vortP.u.dt,dt); blit(velocity.w2); velocity.swap();
+    gl.useProgram(divP.p); gl.uniform1i(divP.u.uV,bind(velocity.r.t,0)); gl.uniform2f(divP.u.uTexel,velocity.texel[0],velocity.texel[1]); blit(divergence);
+    gl.useProgram(clearP.p); gl.uniform1i(clearP.u.uT,bind(pressure.r.t,0)); gl.uniform1f(clearP.u.value,PDECAY); blit(pressure.w2); pressure.swap();
+    gl.useProgram(pressP.p); gl.uniform2f(pressP.u.uTexel,velocity.texel[0],velocity.texel[1]); gl.uniform1i(pressP.u.uDiv,bind(divergence.t,1));
+    for(let i=0;i<ITER;i++){ gl.uniform1i(pressP.u.uP,bind(pressure.r.t,0)); blit(pressure.w2); pressure.swap(); }
+    gl.useProgram(gradSP.p); gl.uniform2f(gradSP.u.uTexel,velocity.texel[0],velocity.texel[1]);
+      gl.uniform1i(gradSP.u.uP,bind(pressure.r.t,0)); gl.uniform1i(gradSP.u.uV,bind(velocity.r.t,1)); blit(velocity.w2); velocity.swap();
+    gl.useProgram(advP.p); gl.uniform2f(advP.u.uTexel,velocity.texel[0],velocity.texel[1]); gl.uniform1f(advP.u.dt,dt);
+      gl.uniform1i(advP.u.uVelocity,bind(velocity.r.t,0)); gl.uniform1i(advP.u.uSource,bind(velocity.r.t,0)); gl.uniform1f(advP.u.diss,c.CALM); blit(velocity.w2); velocity.swap();
+    gl.uniform1i(advP.u.uVelocity,bind(velocity.r.t,0)); gl.uniform1i(advP.u.uSource,bind(dye.r.t,1)); gl.uniform1f(advP.u.diss,c.FADE); blit(dye.w2); dye.swap();
+  }
+
+  function render(){
+    const c=cfg();
+    // scene (HDR)
+    gl.useProgram(dispP.p);
+    gl.uniform1i(dispP.u.uDye,bind(dye.r.t,0)); gl.uniform1i(dispP.u.uField,bind(fieldTex,1));
+    gl.uniform1i(dispP.u.uMask,bind(maskTex,2)); gl.uniform1i(dispP.u.uGrad,bind(gradTex,3));
+    gl.uniform2f(dispP.u.uMaskTexel,maskTexel[0],maskTexel[1]);
+    gl.uniform2f(dispP.u.uDyeTexel,dye.texel[0],dye.texel[1]);
+    gl.uniform1f(dispP.u.uMode, MODE==='refraction'?0:1);
+    gl.uniform1f(dispP.u.uRefr,c.REFR); gl.uniform1f(dispP.u.uCA,c.CHROMA); gl.uniform1f(dispP.u.uBg,c.BG); gl.uniform1f(dispP.u.uEdge,c.EDGE);
+    gl.uniform1f(dispP.u.uRim,c.RIM); gl.uniform1f(dispP.u.uGrey,c.GREY); gl.uniform1f(dispP.u.uTint,c.TINT); gl.uniform1f(dispP.u.uGlowR,c.GLOW);
+    gl.uniform1f(dispP.u.uMaskAmt,c.MASK); gl.uniform1f(dispP.u.uSeam,c.SEAM); gl.uniform1f(dispP.u.uHue,c.HUE);
+    gl.uniform1f(dispP.u.uSpread,c.SPREAD); gl.uniform1f(dispP.u.uReach,c.REACH);
+    blit(scene);
+    // bloom prefilter
+    gl.useProgram(preP.p); gl.uniform1i(preP.u.uTex,bind(scene.t,0)); gl.uniform1f(preP.u.uThresh,0.8); gl.uniform1f(preP.u.uKnee,0.35); blit(bloomA);
+    // blur (2 iterations)
+    gl.useProgram(blurP.p); gl.uniform2f(blurP.u.uTexel,1/BLOOM.w,1/BLOOM.h);
+    for(let k=0;k<2;k++){
+      gl.uniform1i(blurP.u.uTex,bind(bloomA.t,0)); gl.uniform2f(blurP.u.uDir,1,0); blit(bloomB);
+      gl.uniform1i(blurP.u.uTex,bind(bloomB.t,0)); gl.uniform2f(blurP.u.uDir,0,1); blit(bloomA);
+    }
+    // composite + tonemap to screen
+    gl.useProgram(compP.p); gl.uniform1i(compP.u.uScene,bind(scene.t,0)); gl.uniform1i(compP.u.uBloom,bind(bloomA.t,1)); gl.uniform1f(compP.u.uIntensity,c.BLOOM); blit(null);
+  }
+
+  function loop(){
+    requestAnimationFrame(loop);
+    const now=performance.now(); let dt=Math.min((now-last)/1000,0.02); last=now;
+    let autoF=1.0;
+    if(!userMoved){ const e=(now-startT)/1000; if(e<5){ const nx=0.2+0.6*(0.5+0.5*Math.sin(e*0.7)), ny=0.58+0.05*Math.sin(e*1.3);
+      P.dx=Math.max(-CLAMP,Math.min(CLAMP,nx-P.x)); P.dy=Math.max(-CLAMP,Math.min(CLAMP,ny-P.y)); P.x=nx; P.y=ny; P.moved=true; autoF=0.4; } }
+    const FORCE=cfg().FORCE;
+    huePhase=(huePhase+dt*cfg().SPREAD*HUE_SPEED)%1;   // colour drifts over time; frozen when spread is 0
+    if(P.moved && (Math.abs(P.dx)+Math.abs(P.dy))>0.00001){ splat(P.x,P.y,P.dx*SPLAT_FORCE*FORCE*autoF,P.dy*SPLAT_FORCE*FORCE*autoF); P.moved=false; P.dx=0; P.dy=0; }
+    step(dt); render();
+  }
+
+  // capture helper for verification
+  window.grab=(w=760)=>{ const c=canvas,o=document.createElement('canvas'); const r=c.height/c.width;
+    o.width=w; o.height=Math.round(w*r); o.getContext('2d').drawImage(c,0,0,o.width,o.height); return o.toDataURL('image/png'); };
+
+  if(document.fonts && document.fonts.load){
+    Promise.race([document.fonts.load('800 100px Inter'), new Promise(r=>setTimeout(r,1500))]).then(()=>{ buildMask(); loop(); });
+  } else loop();
+}
+</script>
+</body>
+</html>
