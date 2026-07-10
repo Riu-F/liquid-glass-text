@@ -523,9 +523,9 @@ function run(hasLinear){
 
   // ---- per-mode settings (each look keeps its own controls, defaults and tweaks) ----
   const R={BLOOM:0.18,FORCE:3.52,REFR:0.17,BG:0.16,WIDTH:0.002,CHROMA:0.03,RIM:0.0,GREY:0.01,GLOW:0.032,
-           MASK:0.0,SEAM:0.48,HUE:0.67,SPREAD:0.0,TINT:0.0,REACH:0.05,CURL:4,CALM:0.55,FADE:2.2,EDGE:0};
+           MASK:0.0,SEAM:0.16,HUE:0.67,SPREAD:0.0,TINT:0.0,REACH:0.05,CURL:4,CALM:0.55,FADE:0.2,EDGE:0};
   const L={BLOOM:0.14,FORCE:3.0,REFR:0.09,BG:0.04,WIDTH:0.0006,CHROMA:0.004,RIM:1.3,GREY:0.12,GLOW:0.025,
-           MASK:1.0,SEAM:0.0,HUE:0.64,SPREAD:0.0,TINT:2.0,REACH:0.13,CURL:2.5,CALM:0.45,FADE:3.0,EDGE:0};
+           MASK:1.0,SEAM:0.0,HUE:0.64,SPREAD:0.0,TINT:2.0,REACH:0.13,CURL:2.5,CALM:0.45,FADE:0.2,EDGE:0};
   let MODE='liquid';
   const cfg=()=>MODE==='refraction'?R:L;
 
