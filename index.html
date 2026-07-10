@@ -11,7 +11,7 @@
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:#040406;color:#f4f4f6;font-family:'Inter',system-ui,sans-serif;overflow:hidden}
-  #gl{position:fixed;inset:0;display:block;width:100%;height:100%;cursor:crosshair}
+  #gl{position:fixed;inset:0;display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
 
   /* top-center mode switch */
   .modebar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:40;display:flex;gap:4px;
@@ -55,58 +55,118 @@
     font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#6f6f80;transition:opacity .6s}
   .err{position:fixed;inset:0;display:none;place-items:center;text-align:center;z-index:70;
     background:#040406;color:#b9b9c6;font-size:14px;padding:40px;line-height:1.6}
+
+  /* ---- mobile: the wordmark becomes a sticky header; everything else scrolls beneath it.
+     .stage wraps canvas+modebar+hint so they scroll together as one sticky unit — the hint
+     and modebar switch from viewport-fixed to stage-relative, so they stay pinned to the
+     wordmark itself instead of drifting over the content once you scroll past it. ---- */
+  @media (max-width:760px){
+    /* let the page grow to its natural content height so the top-level viewport scrolls
+       (rather than body scrolling as a nested box) — sticky needs ordinary page scrolling */
+    html,body{height:auto}
+    body{overflow:visible}
+    .stage{position:sticky;top:0;height:72vh;height:72dvh;overflow:hidden}
+    #gl{position:absolute;inset:0;width:100%;height:100%}
+    .modebar{position:absolute}
+    .hint{position:absolute;bottom:14px;top:auto}
+    .overlay{position:static;background:none;padding:22px 20px 6px;pointer-events:auto}
+    .overlay p{max-width:none}
+    .panel{position:static;width:auto;margin:14px 16px 40px;max-height:none;overflow:visible}
+  }
 </style>
 </head>
 <body>
-<canvas id="gl"></canvas>
+<div class="stage">
+  <canvas id="gl"></canvas>
 
-<div class="modebar">
-  <button data-mode="liquid" class="active">Liquid over text</button>
-  <button data-mode="refraction">Refraction letters</button>
+  <div class="modebar">
+    <button data-mode="liquid" class="active">Liquid over text</button>
+    <button data-mode="refraction">Refraction letters</button>
+  </div>
+
+  <div class="hint" id="hint">move your cursor or touch across the words</div>
 </div>
 
-<div class="hint" id="hint">move your cursor across the words</div>
 <div class="err" id="err"></div>
 
+<div class="overlay">
+  <div class="kicker" id="ovKicker">Liquid over text</div>
+  <h1 id="ovH1">The liquid is the glass</h1>
+  <p id="ovP">A free-flowing fluid, revealed only inside the letters like a mask. Move your cursor or touch across the words.</p>
+</div>
+
 <!-- ============ Refraction letters panel ============ -->
-<div class="panel hidden" id="panelR">
+<div class="panel withdesc hidden" id="panelR">
   <h2>Refraction letters</h2>
   <label>Text</label>
   <input type="text" id="r_text" value="TEXT" maxlength="24" spellcheck="false" autocomplete="off">
+
   <label>Liquid width <span id="r_vw">0.0020</span></label>
   <input type="range" id="r_width" min="0.00008" max="0.002" step="0.00002" value="0.002">
+  <div class="desc">Thickness of the fluid ribbon. Higher = wider, chunkier trails.</div>
+
   <label>Flow force <span id="r_vf">3.52</span></label>
   <input type="range" id="r_force" min="0.4" max="4" step="0.01" value="3.52">
+  <div class="desc">How hard the cursor pushes the fluid. Higher = faster, more energetic.</div>
+
   <label>Swirl <span id="r_vsw">4.0</span></label>
   <input type="range" id="r_swirl" min="0" max="4" step="0.5" value="4">
+  <div class="desc">Turbulence / curl. Higher = more eddies; lower = smoother ribbons.</div>
+
   <label>Colour fade <span id="r_vfd">2.20</span></label>
   <input type="range" id="r_fade" min="1" max="5" step="0.05" value="2.2">
+  <div class="desc">How fast the fluid fades after you stop. Higher = shorter trails.</div>
+
   <label>Calm (viscosity) <span id="r_vca">0.55</span></label>
   <input type="range" id="r_calm" min="0.2" max="3" step="0.05" value="0.55">
+  <div class="desc">How quickly motion settles. Raise this if it ever feels too "windy".</div>
+
   <label>Refraction (inward) <span id="r_vr">0.170</span></label>
   <input type="range" id="r_refr" min="0" max="0.18" step="0.002" value="0.17">
+  <div class="desc">How strongly the letters bend the fluid inward, refracting it through themselves.</div>
+
   <label>Seam (split look) <span id="r_vse">0.48</span></label>
   <input type="range" id="r_seam" min="0" max="1" step="0.02" value="0.48">
+  <div class="desc">0 refracts the whole letter as one coherent piece. 1 uses the letter's own shape and shows an inner/outer split.</div>
+
   <label>Chromatic <span id="r_vch">0.030</span></label>
   <input type="range" id="r_chroma" min="0" max="0.06" step="0.002" value="0.03">
+  <div class="desc">Prismatic edge fringing where the fluid refracts through a letter.</div>
+
   <label>Fill spread <span id="r_vgl">0.032</span></label>
   <input type="range" id="r_glow" min="0.005" max="0.06" step="0.001" value="0.032">
+  <div class="desc">How far the glow spreads, so a whole letter lights up as one entity when fluid is near it.</div>
+
   <label>Rim / outline <span id="r_vrm">0.00</span></label>
   <input type="range" id="r_rim" min="0" max="2" step="0.05" value="0">
+  <div class="desc">Brightness of the glassy edge highlight.</div>
+
   <label>Letter grey <span id="r_vgr">0.01</span></label>
   <input type="range" id="r_grey" min="0" max="0.4" step="0.01" value="0.01">
+  <div class="desc">How visible the letters are when no fluid is lighting them up.</div>
+
   <label>Colour hue <span id="r_vhu">0.67</span></label>
   <input type="range" id="r_hue" class="hue" min="0" max="1" step="0.01" value="0.67">
+  <div class="desc">Picks the colour along the rainbow track — the colour you drag to is the colour that appears. The default (~0.67) is the original purple.</div>
+
   <label>Rainbow spread <span id="r_vsp">0.00</span></label>
   <input type="range" id="r_spread" min="0" max="1" step="0.02" value="0">
+  <div class="desc">0 keeps a single palette. Higher cycles the hue over time as you paint, so colour streaks through the fluid.</div>
+
   <label>Bloom <span id="r_vbl">0.18</span></label>
   <input type="range" id="r_bloom" min="0" max="1.5" step="0.02" value="0.18">
+  <div class="desc">Soft glow on the brightest parts. Keep low for a crisp look.</div>
+
   <label>Fluid behind <span id="r_vb">0.16</span></label>
   <input type="range" id="r_bg" min="0" max="0.5" step="0.01" value="0.16">
+  <div class="desc">How visible the faint fluid is outside the letters, before Mask hides it.</div>
+
   <label>Mask (hide outside) <span id="r_vmk">0.00</span></label>
   <input type="range" id="r_mask" min="0" max="1" step="0.02" value="0">
+  <div class="desc">How much the fluid outside the letters is hidden. 0 lets it show faintly behind; 1 hides it completely.</div>
+
   <button id="r_clear">Clear</button>
-  <p class="tip">The letters are the glass here: the fluid colours them and refracts their edges. Use the center/edge button for a fill vs border look.</p>
+  <p class="tip">The letters are the glass here: the fluid colours them and refracts their edges.</p>
 </div>
 
 <!-- ============ Liquid over text panel ============ -->
@@ -141,11 +201,11 @@
   <div class="desc">High = liquid only inside the letters. Low = liquid bleeds outside them.</div>
 
   <label>Refraction (bend) <span id="l_vr">0.090</span></label>
-  <input type="range" id="l_refr" min="0" max="0.18" step="0.002" value="0.09">
-  <div class="desc">How much the liquid warps the letter edges as it flows over them.</div>
+  <input type="range" id="l_refr" min="0" max="0.72" step="0.008" value="0.09">
+  <div class="desc">How much the liquid warps the letter edges as it flows over them. Capped by "Refraction reach" below — raise that too if bend stops looking stronger.</div>
 
   <label>Refraction reach <span id="l_vre">0.130</span></label>
-  <input type="range" id="l_reach" min="0.005" max="0.15" step="0.005" value="0.13">
+  <input type="range" id="l_reach" min="0.005" max="0.6" step="0.005" value="0.13">
   <div class="desc">Hard limit on how far from a letter refraction can appear. Low = tight to the letters.</div>
 
   <label>Chromatic <span id="l_vch">0.0040</span></label>
@@ -178,12 +238,6 @@
 
   <button id="l_clear">Clear</button>
   <p class="tip">Chromatic gives the chrome edge; Fluid colour + Hue add one tasteful colour without going rainbow.</p>
-</div>
-
-<div class="overlay">
-  <div class="kicker" id="ovKicker">Liquid over text</div>
-  <h1 id="ovH1">The liquid is the glass</h1>
-  <p id="ovP">A free-flowing fluid, revealed only inside the letters like a mask. Wave your cursor across the words.</p>
 </div>
 
 <script>
@@ -428,7 +482,7 @@ function run(hasLinear){
   const mcv=document.createElement('canvas'), mctx=mcv.getContext('2d'); const maskTex=gl.createTexture(); let maskTexel=[1,1];
   const fcv=document.createElement('canvas'), fctx=fcv.getContext('2d'); const fieldTex=gl.createTexture();
   function buildMask(){
-    const w=Math.floor(innerWidth*DPR),h=Math.floor(innerHeight*DPR); mcv.width=w; mcv.height=h;
+    const w=Math.floor(canvas.clientWidth*DPR),h=Math.floor(canvas.clientHeight*DPR); mcv.width=w; mcv.height=h;
     mctx.fillStyle='#000'; mctx.fillRect(0,0,w,h); mctx.textAlign='center'; mctx.textBaseline='middle';
     let fs=Math.min(w*0.5,h/(WORDS.length*1.15)); mctx.font=`800 ${fs}px Inter, sans-serif`;
     const lng=Math.max(...WORDS.map(t=>mctx.measureText(t).width)); if(lng>w*0.5){ fs*=w*0.5/lng; mctx.font=`800 ${fs}px Inter, sans-serif`; }
@@ -450,7 +504,7 @@ function run(hasLinear){
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,fcv); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
   }
 
-  function resize(){ canvas.width=Math.floor(innerWidth*DPR); canvas.height=Math.floor(innerHeight*DPR); initFBOs(); buildMask(); }
+  function resize(){ canvas.width=Math.floor(canvas.clientWidth*DPR); canvas.height=Math.floor(canvas.clientHeight*DPR); initFBOs(); buildMask(); }
 
   function bind(t,u){ gl.activeTexture(gl.TEXTURE0+u); gl.bindTexture(gl.TEXTURE_2D,t); return u; }
   function blit(target){ if(target){ gl.bindFramebuffer(gl.FRAMEBUFFER,target.f); gl.viewport(0,0,target.w,target.h);}
@@ -459,10 +513,13 @@ function run(hasLinear){
   // ---- pointer ----
   const P={x:0.5,y:0.6,dx:0,dy:0,moved:false}; let userMoved=false; const hintEl=document.getElementById('hint');
   const CLAMP=0.005;   // cap how much velocity a single frame can inject (stops runaway "wind")
-  function setP(cx,cy){ const nx=cx/innerWidth, ny=1-cy/innerHeight;
+  function setP(cx,cy){ const rect=canvas.getBoundingClientRect();
+    const nx=(cx-rect.left)/rect.width, ny=1-(cy-rect.top)/rect.height;
     P.dx=Math.max(-CLAMP,Math.min(CLAMP,nx-P.x)); P.dy=Math.max(-CLAMP,Math.min(CLAMP,ny-P.y)); P.x=nx; P.y=ny; P.moved=true; }
-  addEventListener('pointermove',e=>{ setP(e.clientX,e.clientY); userMoved=true; hintEl.style.opacity=0; });
-  addEventListener('pointerdown',e=>{ setP(e.clientX,e.clientY); userMoved=true; });
+  // listeners live on the canvas itself (not window) so on mobile, scrolling/tapping the
+  // controls below the sticky wordmark never gets misread as a paint gesture.
+  canvas.addEventListener('pointermove',e=>{ setP(e.clientX,e.clientY); userMoved=true; hintEl.style.opacity=0; });
+  canvas.addEventListener('pointerdown',e=>{ setP(e.clientX,e.clientY); userMoved=true; });
 
   // ---- per-mode settings (each look keeps its own controls, defaults and tweaks) ----
   const R={BLOOM:0.18,FORCE:3.52,REFR:0.17,BG:0.16,WIDTH:0.002,CHROMA:0.03,RIM:0.0,GREY:0.01,GLOW:0.032,
@@ -513,9 +570,9 @@ function run(hasLinear){
   // ---- top-center mode switch ----
   const OV={
     refraction:{k:'Refraction letters',h:'The letters are the glass',
-      p:'The fluid colours and refracts the letterforms themselves. Wave your cursor across the words.',t:'Liquid Glass Text · Refraction Letters'},
+      p:'The fluid colours and refracts the letterforms themselves. Move your cursor or touch across the words.',t:'Liquid Glass Text · Refraction Letters'},
     liquid:{k:'Liquid over text',h:'The liquid is the glass',
-      p:'A free-flowing fluid, revealed only inside the letters like a mask. Wave your cursor across the words.',t:'Liquid Glass Text · Liquid Over Text'}
+      p:'A free-flowing fluid, revealed only inside the letters like a mask. Move your cursor or touch across the words.',t:'Liquid Glass Text · Liquid Over Text'}
   };
   const ovK=document.getElementById('ovKicker'), ovH=document.getElementById('ovH1'), ovP=document.getElementById('ovP');
   const panelR=document.getElementById('panelR'), panelL=document.getElementById('panelL');
