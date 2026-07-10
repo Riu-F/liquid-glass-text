@@ -1,3 +1,5 @@
+**[🎨 View Live Demo](https://www.riufukazawa.com/liquid-glass-text)**
+
 # Liquid Glass Text
 
 **A cursor-driven fluid simulation, rendered as glass over a wordmark.**
