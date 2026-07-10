@@ -151,8 +151,6 @@ The fluid and the glass are both well-trodden individually. What's less common i
 
 Fluid solver based on [WebGL-Fluid-Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation) by Pavel Dobryakov (MIT). Typeface: [Inter](https://rsms.me/inter/) by Rasmus Andersson.
 
-Originally built to explore a liquid-glass wordmark for **Now We Collide**.
-
 ## License
 
 [MIT](LICENSE) © 2026 Riu Fukazawa
