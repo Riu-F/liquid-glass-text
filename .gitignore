@@ -8,3 +8,7 @@
 
 # Logs / misc
 *.log
+
+# Large local media (kept on disk for uploads, not committed)
+assets/cover-full.png
+assets/*.mov
