@@ -1,10 +1,10 @@
-**[🎨 View Live Demo](https://www.riufukazawa.com/liquid-glass-text)**
-
 # Liquid Glass Text
 
 **A cursor-driven fluid simulation, rendered as glass over a wordmark.**
 
-![Liquid Glass Text](assets/hero.jpg)
+![Liquid Glass Text](assets/cover.png)
+
+**[🎨 View Live Demo](https://www.riufukazawa.com/liquid-glass-text)**
 
 A real-time Navier–Stokes fluid runs on the GPU and becomes the *material* of a piece of type. Move your cursor across the letters and the liquid pushes, swirls, refracts and colours them. There are two readings of the same idea — the liquid is the glass, or the letters are the glass — and you can switch between them live.
 
